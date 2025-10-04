@@ -20,13 +20,26 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    val unsplashAccessKey =
+        (project.findProperty("unsplashAccessKey") as? String)
+            ?: System.getenv("UNSPLASH_ACCESS_KEY")
+            ?: ""
+
+    if (unsplashAccessKey.isBlank()) {
+        logger.warn("Unsplash access key not configured. Network calls will fail without it.")
+    }
+
     buildTypes {
+        debug {
+            buildConfigField("String", "UNSPLASH_ACCESS_KEY", "\"$unsplashAccessKey\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "UNSPLASH_ACCESS_KEY", "\"$unsplashAccessKey\"")
         }
     }
 
@@ -40,6 +53,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -55,6 +69,7 @@ dependencies {
     // --- AndroidX core ---
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
 
     // --- Paging ---
