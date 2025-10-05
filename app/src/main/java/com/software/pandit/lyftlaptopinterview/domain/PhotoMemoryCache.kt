@@ -6,13 +6,22 @@ import javax.inject.Singleton
 
 @Singleton
 class PhotoMemoryCache @Inject constructor() {
-    private val cachedPages = mutableMapOf<Int, List<Photo>>()
 
-    fun get(page: Int): List<Photo>? = synchronized(cachedPages) { cachedPages[page] }
+    data class CachedPage(
+        val photos: List<Photo>,
+        val endOfPaginationReached: Boolean,
+    )
 
-    fun put(page: Int, photos: List<Photo>) {
+    private val cachedPages = mutableMapOf<Int, CachedPage>()
+
+    fun get(page: Int): CachedPage? = synchronized(cachedPages) { cachedPages[page] }
+
+    fun put(page: Int, photos: List<Photo>, endOfPaginationReached: Boolean) {
         synchronized(cachedPages) {
-            cachedPages[page] = photos
+            cachedPages[page] = CachedPage(
+                photos = photos,
+                endOfPaginationReached = endOfPaginationReached,
+            )
         }
     }
 

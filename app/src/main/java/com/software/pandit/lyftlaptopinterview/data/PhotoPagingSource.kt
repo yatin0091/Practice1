@@ -42,9 +42,9 @@ class PhotoPagingSource @Inject constructor(
             val cached = memoryCache.get(nextPageNumber)
             if (cached != null) {
                 return LoadResult.Page(
-                    data = cached,
+                    data = cached.photos,
                     prevKey = if (nextPageNumber == 1) null else nextPageNumber - 1,
-                    nextKey = if (cached.isEmpty()) null else nextPageNumber + 1
+                    nextKey = if (cached.endOfPaginationReached) null else nextPageNumber + 1
                 )
             }
 
@@ -53,11 +53,13 @@ class PhotoPagingSource @Inject constructor(
             // drop duplicates we've already emitted in this paging session
             val deduped = photos.filter { seenIds.add(it.id) }
 
-            memoryCache.put(nextPageNumber, deduped)
+            val endOfPaginationReached = photos.isEmpty()
+
+            memoryCache.put(nextPageNumber, deduped, endOfPaginationReached)
 
             LoadResult.Page(
                 data = deduped,
-                nextKey = if (deduped.isEmpty()) null else nextPageNumber + 1,
+                nextKey = if (endOfPaginationReached) null else nextPageNumber + 1,
                 prevKey = if (nextPageNumber == 1) null else nextPageNumber - 1
             )
         } catch (e: Exception) {

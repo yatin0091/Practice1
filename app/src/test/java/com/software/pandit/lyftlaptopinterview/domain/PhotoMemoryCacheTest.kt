@@ -41,14 +41,18 @@ class PhotoMemoryCacheTest {
             )
         )
 
-        cache.put(page, photos)
+        cache.put(page, photos, endOfPaginationReached = false)
 
-        assertThat(cache.get(page)).containsExactlyElementsIn(photos)
+        val cached = cache.get(page)
+
+        assertThat(cached).isNotNull()
+        assertThat(cached!!.photos).containsExactlyElementsIn(photos)
+        assertThat(cached.endOfPaginationReached).isFalse()
     }
 
     @Test
     fun `clear removes previously cached pages`() {
-        cache.put(2, emptyList())
+        cache.put(2, emptyList(), endOfPaginationReached = true)
         cache.clear()
 
         assertThat(cache.get(2)).isNull()
