@@ -1,5 +1,6 @@
 package com.software.pandit.lyftlaptopinterview.data.network
 
+import com.software.pandit.lyftlaptopinterview.BuildConfig
 import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
@@ -32,14 +33,22 @@ class NetworkModule {
     @Provides
     @Singleton
     @ApiKey
-    fun provideApiKey(): String = "V3sVfbkaOuBlwSD_BEqMSyJAB5gYectrTFl6-NrYyTM"
+    fun provideApiKey(): String {
+        require(BuildConfig.UNSPLASH_ACCESS_KEY.isNotBlank()) {
+            "Unsplash API key must be configured via Gradle property or UNSPLASH_ACCESS_KEY env var."
+        }
+        return BuildConfig.UNSPLASH_ACCESS_KEY
+    }
 
     @Provides
     @Singleton
     fun provideLoggingInterceptor(): HttpLoggingInterceptor =
         HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-//            else HttpLoggingInterceptor.Level.NONE
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
 
     @Provides

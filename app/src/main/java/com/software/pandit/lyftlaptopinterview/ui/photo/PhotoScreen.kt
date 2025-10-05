@@ -15,56 +15,81 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemContentType
+import androidx.paging.compose.itemKey
 import coil.compose.AsyncImage
-import com.software.pandit.lyftlaptopinterview.data.Photo
+import com.software.pandit.lyftlaptopinterview.domain.model.PhotoSummary
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 fun PhotoRoute(modifier: Modifier = Modifier, viewModel: PhotoVm = hiltViewModel()) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val items = viewModel.photos.collectAsLazyPagingItems()
-    when (val s = items.loadState.refresh) {
-        is LoadState.Loading -> {
+
+    LaunchedEffect(viewModel, items) {
+        snapshotFlow { items.loadState }
+            .distinctUntilChanged()
+            .collectLatest { loadStates -> viewModel.onLoadStatesChanged(loadStates) }
+    }
+
+    LaunchedEffect(items.itemCount) {
+        viewModel.onPhotoCountChanged(items.itemCount)
+    }
+
+    when {
+        uiState.isLoading -> {
             Box(modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-            return
         }
 
-        is LoadState.Error -> {
+        uiState.errorMessage != null -> {
+            PhotoError(
+                modifier = modifier,
+                message = uiState.errorMessage,
+                onRetry = { items.retry() }
+            )
+        }
+
+        uiState.isEmpty -> {
             Box(modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Failed to load photos: ${s.error.localizedMessage ?: "Unknown error"}")
+                    Text("No photos yet.")
                     Spacer(Modifier.height(8.dp))
-                    Button(onClick = { items.retry() }) { Text("Retry") }
+                    TextButton(onClick = { items.refresh() }) { Text("Refresh") }
                 }
             }
-            return
         }
 
-        else -> Unit
+        else -> PhotoListScreen(modifier, items)
     }
-    PhotoListScreen(modifier, items)
 }
 
 @Composable
 fun PhotoListScreen(
     modifier: Modifier,
-    items: LazyPagingItems<Photo>,
+    items: LazyPagingItems<PhotoSummary>,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(16.dp),
@@ -73,55 +98,22 @@ fun PhotoListScreen(
     ) {
         items(
             count = items.itemCount,
-            key = { idx -> items[idx]?.id ?: "placeholder-$idx" }
+            key = items.itemKey { it.id },
+            contentType = items.itemContentType { "photo" }
         ) { idx ->
-            val photo = items[idx]
-            if (photo == null) {
-                // placeholder while paging loads
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                )
-            } else {
-                PhotoRow(photo, onClick = { })
+            when (val photo = items[idx]) {
+                null -> LoadingPlaceholder()
+                else -> PhotoRow(photo, onClick = { })
             }
         }
 
         // Append state footer
-        when (val s = items.loadState.append) {
-            is LoadState.Loading -> {
-                item {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(Modifier.padding(16.dp))
-                    }
-                }
-            }
-
-            is LoadState.Error -> {
-                item {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("More photos failed to load.")
-                        TextButton(onClick = { items.retry() }) { Text("Retry") }
-                    }
-                }
-            }
-
-            else -> Unit
-        }
+        appendLoadState(items)
     }
 }
 
 @Composable
-private fun PhotoRow(photo: Photo, onClick: () -> Unit) {
+private fun PhotoRow(photo: PhotoSummary, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -131,20 +123,75 @@ private fun PhotoRow(photo: Photo, onClick: () -> Unit) {
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Replace with your image loader (Coil/Glide)
-        // AsyncImage(model = photo.url, contentDescription = null, modifier = Modifier.size(72.dp))
         AsyncImage(
             modifier = Modifier
                 .size(72.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
-            model = photo.urls.small,
-            contentDescription = photo.id
+            model = photo.thumbnailUrl,
+            contentDescription = photo.title
         )
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(photo.id, style = MaterialTheme.typography.titleMedium)
+            Text(photo.title, style = MaterialTheme.typography.titleMedium)
             Text(photo.description ?: "", maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "${photo.likes} likes",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
+    }
+}
+
+@Composable
+private fun LoadingPlaceholder() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    )
+}
+
+@Composable
+private fun PhotoError(modifier: Modifier, message: String, onRetry: () -> Unit) {
+    Box(modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Failed to load photos: $message")
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onRetry) { Text("Retry") }
+        }
+    }
+}
+
+private fun LazyListScope.appendLoadState(items: LazyPagingItems<PhotoSummary>) {
+    when (val s = items.loadState.append) {
+        is LoadState.Loading -> {
+            item {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(Modifier.padding(16.dp))
+                }
+            }
+        }
+
+        is LoadState.Error -> {
+            item {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("More photos failed to load.")
+                    TextButton(onClick = { items.retry() }) { Text("Retry") }
+                }
+            }
+        }
+
+        else -> Unit
     }
 }

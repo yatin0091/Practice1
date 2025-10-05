@@ -9,6 +9,7 @@ ksp = "2.2.20-2.0.2"
 # AndroidX core
 coreKtx = "1.17.0"
 lifecycleRuntimeKtx = "2.9.4"
+lifecycleRuntimeCompose = "2.9.4"
 activityCompose = "1.11.0"
 
 # Compose
@@ -47,6 +48,7 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-paging = { group = "androidx.paging", name = "paging-runtime", version.ref = "paging" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
 
 # Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
