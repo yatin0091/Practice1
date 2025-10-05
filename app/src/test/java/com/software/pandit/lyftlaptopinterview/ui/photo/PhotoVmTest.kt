@@ -6,7 +6,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListUpdateCallback
 import com.google.common.truth.Truth.assertThat
 import com.software.pandit.lyftlaptopinterview.MainDispatcherRule
-import com.software.pandit.lyftlaptopinterview.createPhoto
+import com.software.pandit.lyftlaptopinterview.TestPhotoFactory
 import com.software.pandit.lyftlaptopinterview.data.Photo
 import com.software.pandit.lyftlaptopinterview.data.PhotoRepo
 import app.cash.turbine.test
@@ -30,7 +30,7 @@ class PhotoVmTest {
     @Test
     fun `photos flow emits data from repo`() = runTest {
         val vm = PhotoVm(fakeRepo)
-        val photo = createPhoto("1")
+        val photo = TestPhotoFactory.photo("1")
         fakeRepo.emit(PagingData.from(listOf(photo)))
 
         val differ = AsyncPagingDataDiffer(

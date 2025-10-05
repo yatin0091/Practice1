@@ -4,11 +4,13 @@ import androidx.paging.AsyncPagingDataDiffer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListUpdateCallback
 import com.google.common.truth.Truth.assertThat
+import com.software.pandit.lyftlaptopinterview.TestPhotoFactory
 import com.software.pandit.lyftlaptopinterview.data.Photo
 import com.software.pandit.lyftlaptopinterview.data.PhotoPagingSource
 import com.software.pandit.lyftlaptopinterview.data.PhotoRepoImpl
 import com.software.pandit.lyftlaptopinterview.data.network.PhotoApi
 import com.software.pandit.lyftlaptopinterview.ui.photo.PhotoVm
+import java.util.ArrayDeque
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -25,20 +27,20 @@ class PhotoFlowIntegrationTest {
 
     @Test
     fun `photo vm exposes deduped photos from repo and paging source`() = runTest {
-        val photo1 = createPhoto(id = "1")
-        val photo2 = createPhoto(id = "2")
-        val duplicatePhoto2 = createPhoto(id = "2")
-        val duplicateAcrossPages = createPhoto(id = "2")
-        val photo3 = createPhoto(id = "3")
+        val photo1 = TestPhotoFactory.photo(id = "1")
+        val photo2 = TestPhotoFactory.photo(id = "2")
+        val duplicatePhoto2 = TestPhotoFactory.photo(id = "2")
+        val duplicateAcrossPages = TestPhotoFactory.photo(id = "2")
+        val photo3 = TestPhotoFactory.photo(id = "3")
 
         val api = QueuePhotoApi(
-            mutableListOf(
-                mutableListOf(
+            pages = listOf(
+                listOf(
                     photo1,
                     photo2,
                     duplicatePhoto2
                 ),
-                mutableListOf(
+                listOf(
                     duplicateAcrossPages,
                     photo3
                 )
@@ -65,6 +67,7 @@ class PhotoFlowIntegrationTest {
         differ[2]
         advanceUntilIdle()
 
+        assertThat(api.requestedPages).containsExactly(1, 2)
         assertThat(differ.snapshot()).containsExactly(
             photo1,
             photo2,
@@ -80,11 +83,15 @@ class PhotoFlowIntegrationTest {
     }
 
     private class QueuePhotoApi(
-        private val responses: MutableList<MutableList<Photo>>
+        pages: List<List<Photo>>
     ) : PhotoApi {
+        private val responses = ArrayDeque(pages)
+        val requestedPages = mutableListOf<Int>()
+
         override suspend fun getPhotos(page: Int, clientId: String): List<Photo> {
+            requestedPages += page
             if (responses.isEmpty()) error("No response configured for page $page")
-            return responses.removeAt(0)
+            return responses.removeFirst()
         }
     }
 }
