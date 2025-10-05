@@ -21,16 +21,21 @@ class PhotoRepoImpl @Inject constructor(
     private val memoryCache: PhotoMemoryCache,
 ) : PhotoRepo {
 
-    override fun getPhotos(): Flow<PagingData<PhotoSummary>> = Pager(
-        PagingConfig(
-            pageSize = 10,
-            prefetchDistance = 2,
-            enablePlaceholders = false
-        )
-    ) {
-        pagingSourceProvider.get().apply { registerInvalidatedCallback { memoryCache.clear() } }
-    }.flow.map { pagingData ->
-        pagingData.map { it.toSummary() }
+    override fun getPhotos(): Flow<PagingData<PhotoSummary>> {
+        val pageSize = 10
+
+        return Pager(
+            PagingConfig(
+                pageSize = pageSize,
+                prefetchDistance = 2,
+                enablePlaceholders = false,
+                maxSize = pageSize * 3
+            )
+        ) {
+            pagingSourceProvider.get().apply { registerInvalidatedCallback { memoryCache.clear() } }
+        }.flow.map { pagingData ->
+            pagingData.map { it.toSummary() }
+        }
     }
 
 }
