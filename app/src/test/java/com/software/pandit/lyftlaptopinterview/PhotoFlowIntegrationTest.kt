@@ -7,8 +7,10 @@ import com.google.common.truth.Truth.assertThat
 import com.software.pandit.lyftlaptopinterview.TestPhotoFactory
 import com.software.pandit.lyftlaptopinterview.data.Photo
 import com.software.pandit.lyftlaptopinterview.data.PhotoPagingSource
+import com.software.pandit.lyftlaptopinterview.data.PhotoPagingSourceFactory
 import com.software.pandit.lyftlaptopinterview.data.PhotoRepoImpl
 import com.software.pandit.lyftlaptopinterview.data.network.PhotoApi
+import com.software.pandit.lyftlaptopinterview.domain.PhotoMemoryCache
 import com.software.pandit.lyftlaptopinterview.ui.photo.PhotoVm
 import java.util.ArrayDeque
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,7 +19,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
-import javax.inject.Provider
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PhotoFlowIntegrationTest {
@@ -46,7 +47,13 @@ class PhotoFlowIntegrationTest {
                 )
             )
         )
-        val repo = PhotoRepoImpl(Provider { PhotoPagingSource(api, clientId = "client") })
+        val memoryCache = PhotoMemoryCache()
+        val repo = PhotoRepoImpl(
+            pagingSourceFactory = PhotoPagingSourceFactory {
+                PhotoPagingSource(api, clientId = "client", memoryCache = memoryCache)
+            },
+            memoryCache = memoryCache,
+        )
         val viewModel = PhotoVm(repo)
 
         val differ = AsyncPagingDataDiffer(

@@ -14,4 +14,9 @@ interface DataModule {
     @Binds
     fun bindPhotoRepo(photoRepoImpl: PhotoRepoImpl): PhotoRepo
 
+    @Binds
+    fun bindPhotoPagingSourceFactory(
+        factory: HiltPhotoPagingSourceFactory,
+    ): PhotoPagingSourceFactory
+
 }
