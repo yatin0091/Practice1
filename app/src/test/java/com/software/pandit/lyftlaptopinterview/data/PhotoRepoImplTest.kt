@@ -2,7 +2,6 @@ package com.software.pandit.lyftlaptopinterview.data
 
 import androidx.paging.AsyncPagingDataDiffer
 import androidx.paging.PagingData
-import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListUpdateCallback
@@ -15,7 +14,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
-import javax.inject.Provider
+import com.software.pandit.lyftlaptopinterview.domain.PhotoMemoryCache
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PhotoRepoImplTest {
@@ -25,8 +24,8 @@ class PhotoRepoImplTest {
 
     @Test
     fun `getPhotos collects paging data from provided paging source`() = runTest {
-        val provider = CountingProvider { RecordingPagingSource() }
-        val repo = PhotoRepoImpl(provider)
+        val factory = CountingFactory { RecordingPagingSource() }
+        val repo = PhotoRepoImpl(factory, PhotoMemoryCache())
 
         val pagingData = repo.getPhotos().first()
 
@@ -42,22 +41,22 @@ class PhotoRepoImplTest {
 
         differ.submitData(pagingData)
         advanceUntilIdle()
-        assertThat(provider.invocations).isEqualTo(1)
-        assertThat(provider.lastPagingSource.refreshInvocations).isEqualTo(1)
+        assertThat(factory.invocations).isEqualTo(1)
+        assertThat(factory.lastPagingSource.refreshInvocations).isEqualTo(1)
         assertThat(differ.snapshot()).containsExactly(
             TestPhotoFactory.photo(id = "from-paging-source")
         )
     }
 
-    private class CountingProvider(
+    private class CountingFactory(
         private val delegate: () -> RecordingPagingSource
-    ) : Provider<PhotoPagingSource> {
+    ) : PhotoPagingSourceFactory {
         var invocations = 0
             private set
         lateinit var lastPagingSource: RecordingPagingSource
             private set
 
-        override fun get(): PhotoPagingSource {
+        override fun create(): PhotoPagingSource {
             invocations++
             return delegate().also { lastPagingSource = it }
         }
@@ -68,7 +67,8 @@ class PhotoRepoImplTest {
             override suspend fun getPhotos(page: Int, clientId: String): List<Photo> =
                 listOf(TestPhotoFactory.photo(id = "from-paging-source"))
         },
-        clientId = "client"
+        clientId = "client",
+        memoryCache = PhotoMemoryCache(),
     ) {
         var refreshInvocations = 0
             private set

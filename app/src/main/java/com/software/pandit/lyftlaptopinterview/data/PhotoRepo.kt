@@ -10,14 +10,13 @@ import com.software.pandit.lyftlaptopinterview.domain.toSummary
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
-import javax.inject.Provider
 
 interface PhotoRepo {
     fun getPhotos(): Flow<PagingData<PhotoSummary>>
 }
 
 class PhotoRepoImpl @Inject constructor(
-    private val pagingSourceProvider: Provider<PhotoPagingSource>,
+    private val pagingSourceFactory: PhotoPagingSourceFactory,
     private val memoryCache: PhotoMemoryCache,
 ) : PhotoRepo {
 
@@ -32,7 +31,7 @@ class PhotoRepoImpl @Inject constructor(
                 maxSize = pageSize * 3
             )
         ) {
-            pagingSourceProvider.get().apply { registerInvalidatedCallback { memoryCache.clear() } }
+            pagingSourceFactory.create().apply { registerInvalidatedCallback { memoryCache.clear() } }
         }.flow.map { pagingData ->
             pagingData.map { it.toSummary() }
         }
